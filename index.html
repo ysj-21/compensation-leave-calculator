@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>보상휴가시간 계산기</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#ffffff;--bg2:#f7f7f5;--bg3:#f0efec;
+  --text:#1a1a1a;--text2:#6b6b6b;--text3:#9a9a9a;
+  --border:#e0dfd8;--border2:#c8c7c0;
+  --blue-bg:#eff6ff;--blue-text:#1e5fa8;--blue-border:#b5d4f4;
+  --red-bg:#fff0f0;--red-text:#b03030;--red-border:#f7c1c1;
+  --yellow-bg:#fef9ee;--yellow-text:#8a5a00;--yellow-border:#fac775;
+  --radius:8px;--radius-lg:12px;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#1c1c1a;--bg2:#252523;--bg3:#2e2e2b;
+    --text:#e8e7e2;--text2:#9a9890;--text3:#6a6a62;
+    --border:#3a3a36;--border2:#4a4a46;
+    --blue-bg:#0c2a4a;--blue-text:#85b7eb;--blue-border:#185fa5;
+    --red-bg:#3a1010;--red-text:#f09595;--red-border:#a32d2d;
+    --yellow-bg:#2a1e00;--yellow-text:#fac775;--yellow-border:#854f0b;
+  }
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif;background:var(--bg3);color:var(--text);font-size:15px;line-height:1.6;min-height:100vh}
+.page{max-width:860px;margin:0 auto;padding:2rem 1rem}
+.page-header{margin-bottom:2rem}
+.page-header h1{font-size:22px;font-weight:500;color:var(--text);margin-bottom:6px}
+.page-header p{font-size:13px;color:var(--text2);line-height:1.7}
+.card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1rem}
+.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.controls label{font-size:13px;color:var(--text2)}
+select,input[type=number]{background:var(--bg);color:var(--text);border:0.5px solid var(--border2);border-radius:var(--radius);padding:7px 10px;font-size:14px;font-family:inherit}
+select:focus,input:focus{outline:none;border-color:var(--blue-border)}
+button{background:var(--bg);color:var(--text);border:0.5px solid var(--border2);border-radius:var(--radius);padding:7px 14px;font-size:14px;font-family:inherit;cursor:pointer}
+button:hover{background:var(--bg2)}
+button.primary{background:var(--blue-bg);color:var(--blue-text);border-color:var(--blue-border)}
+button.primary:hover{opacity:0.85}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cal-hdr{text-align:center;font-size:11px;font-weight:500;padding:6px 0;color:var(--text2)}
+.cal-hdr.sun{color:var(--red-text)}
+.day-cell{border:0.5px solid var(--border);border-radius:var(--radius);padding:6px;min-height:80px;background:var(--bg)}
+.day-cell.empty{background:transparent;border-color:transparent;min-height:0}
+.day-cell.sunday{background:var(--red-bg);border-color:var(--red-border)}
+.day-cell.saturday{background:var(--bg2)}
+.day-cell.holiday-pub{background:var(--red-bg);border-color:var(--red-border)}
+.day-num{font-size:11px;font-weight:500;color:var(--text2);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center}
+.day-num.sun-num{color:var(--red-text)}
+.day-type-tag{font-size:9px;color:var(--text3)}
+.inp-row{display:flex;flex-direction:column;gap:2px;margin-bottom:3px}
+.inp-row label{font-size:9px;color:var(--text3)}
+.inp-row input{width:100%;font-size:12px;padding:3px 5px;border:0.5px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text)}
+.inp-row input.has-ext{border-color:var(--blue-border);background:var(--blue-bg)}
+.inp-row input.has-night{border-color:var(--yellow-border);background:var(--yellow-bg)}
+.inp-row input.has-holi{border-color:var(--red-border);background:var(--red-bg)}
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:1rem}
+.metric{background:var(--bg2);border-radius:var(--radius);padding:12px 14px}
+.metric .ml{font-size:12px;color:var(--text2);margin-bottom:4px}
+.metric .mv{font-size:22px;font-weight:500;color:var(--text)}
+.metric .mu{font-size:12px;color:var(--text2);margin-left:3px}
+.metric.accent .mv{color:var(--blue-text)}
+.breakdown-table{width:100%;border-collapse:collapse;font-size:13px}
+.breakdown-table th{text-align:left;padding:8px 12px;font-weight:500;color:var(--text2);border-bottom:0.5px solid var(--border);font-size:12px;background:var(--bg2)}
+.breakdown-table td{padding:8px 12px;border-bottom:0.5px solid var(--border)}
+.breakdown-table tr:last-child td{border-bottom:none}
+.breakdown-table .total-row td{font-weight:500;background:var(--bg2)}
+.noga{color:var(--text3);font-size:12px}
+.notice{font-size:12px;color:var(--text2);line-height:1.8;padding:12px 16px;background:var(--bg2);border-radius:var(--radius);border-left:3px solid var(--border2)}
+.notice p{margin-bottom:4px}
+.notice p:last-child{margin-bottom:0}
+.section-title{font-size:14px;font-weight:500;color:var(--text);margin-bottom:10px}
+@media(max-width:600px){
+  .cal-grid{gap:2px}
+  .day-cell{min-height:70px;padding:4px}
+  .summary-grid{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="page-header">
+    <h1>보상휴가시간 계산기</h1>
+    <p>일반근로시간제 적용 근로자 | 소정근로 1일 8시간 | 토요일 무급휴무일 | 일요일 주휴일 | 공휴일 유급휴일<br>
+    근로기준법 제50조·제56조·제57조 기준으로 연장·야간·휴일근로 보상휴가시간을 자동 산정합니다.</p>
+  </div>
+
+  <div class="card">
+    <div class="controls">
+      <label>연도</label>
+      <select id="selYear"></select>
+      <label>월</label>
+      <select id="selMonth"></select>
+      <button class="primary" onclick="renderCal()">달력 보기</button>
+      <button onclick="resetAll()">초기화</button>
+    </div>
+  </div>
+
+  <div class="card" id="calCard" style="display:none">
+    <div class="section-title" id="calTitle"></div>
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+
+  <div id="summaryCard" style="display:none">
+    <div class="summary-grid" id="summaryGrid"></div>
+    <div class="card">
+      <div class="section-title">일별 산정 내역</div>
+      <div style="overflow-x:auto">
+        <table class="breakdown-table" id="bdTable">
+          <thead><tr><th>날짜</th><th>구분</th><th>근로시간(h)</th><th>야간(h)</th><th>산정 방식</th><th>보상휴가(h)</th></tr></thead>
+          <tbody id="bdBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:1rem">
+    <div class="notice">
+      <p>※ 평일 — "총근무(h)": 그날의 실제 총 근로시간을 입력하세요. 8시간 초과분이 자동으로 연장근로로 산정됩니다.</p>
+      <p>※ 토요일(무급휴무일) — "총근무(h)": 그날의 실제 총 근로시간을 입력하세요. 8시간 초과분(일 단위) 및 주 40시간 초과분(주 단위)이 자동 산정됩니다.</p>
+      <p>※ 일요일·공휴일(유급휴일) — "휴일근로(h)": 그날의 실제 총 근로시간을 입력하세요.</p>
+      <p>※ "야간(h)": 근로시간 중 22:00~06:00에 해당하는 시간을 입력하세요.</p>
+      <p>※ 주 단위 산정은 일요일~토요일 1주 기준으로 계산되며, 일·주 중복분은 자동 제외됩니다.</p>
+      <p>※ 자정을 교차하는 근무(예: 토 22시~일 02시)는 날짜별로 나눠서 각각 입력하세요.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const HOLIDAYS={
+  "2024":["2024-01-01","2024-02-09","2024-02-10","2024-02-11","2024-02-12","2024-03-01","2024-04-10","2024-05-05","2024-05-06","2024-05-15","2024-06-06","2024-08-15","2024-09-16","2024-09-17","2024-09-18","2024-10-03","2024-10-09","2024-12-25"],
+  "2025":["2025-01-01","2025-01-28","2025-01-29","2025-01-30","2025-03-01","2025-03-03","2025-05-05","2025-05-06","2025-06-06","2025-08-15","2025-10-03","2025-10-06","2025-10-07","2025-10-08","2025-10-09","2025-12-25"],
+  "2026":["2026-01-01","2026-02-17","2026-02-18","2026-02-19","2026-03-01","2026-03-02","2026-05-05","2026-05-25","2026-06-06","2026-08-17","2026-09-24","2026-09-25","2026-09-28","2026-10-05","2026-10-09","2026-12-25"]
+};
+const ALL_HOLIDAYS=Object.values(HOLIDAYS).flat();
+
+function pad(n){return String(n).padStart(2,'0');}
+function dateStr(y,m,d){return`${y}-${pad(m+1)}-${pad(d)}`;}
+function isHoliday(y,m,d){return ALL_HOLIDAYS.includes(dateStr(y,m,d));}
+function getDayType(y,m,d){
+  const dow=new Date(y,m,d).getDay();
+  if(dow===0)return'sunday';
+  if(dow===6)return'saturday';
+  if(isHoliday(y,m,d))return'holiday';
+  return'weekday';
+}
+
+let state={};
+function key(y,m,d){return`${y}-${m}-${d}`;}
+
+const selY=document.getElementById('selYear');
+const selM=document.getElementById('selMonth');
+const now=new Date();
+for(let y=2024;y<=2027;y++){
+  const o=document.createElement('option');
+  o.value=y;o.textContent=y+'년';
+  if(y===now.getFullYear())o.selected=true;
+  selY.appendChild(o);
+}
+for(let m=0;m<12;m++){
+  const o=document.createElement('option');
+  o.value=m;o.textContent=(m+1)+'월';
+  if(m===now.getMonth())o.selected=true;
+  selM.appendChild(o);
+}
+
+function makeInput(k,field,placeholder,cls){
+  const inp=document.createElement('input');
+  inp.type='number';inp.min='0';inp.max='24';inp.step='0.5';inp.placeholder=placeholder||'0';
+  const sv=state[k]||{};
+  inp.value=sv[field]||'';
+  if(inp.value&&parseFloat(inp.value)>0)inp.classList.add(cls);
+  inp.oninput=function(){
+    if(!state[k])state[k]={};
+    const v=parseFloat(this.value)||0;
+    state[k][field]=v;
+    this.classList.toggle(cls,v>0);
+    const y=parseInt(selY.value),mo=parseInt(selM.value);
+    calcAndRender(y,mo);
+  };
+  return inp;
+}
+
+function renderCal(){
+  const y=parseInt(selY.value),m=parseInt(selM.value);
+  const days=new Date(y,m+1,0).getDate();
+  const firstDow=new Date(y,m,1).getDay();
+  document.getElementById('calTitle').textContent=`${y}년 ${m+1}월`;
+  document.getElementById('calCard').style.display='block';
+  const grid=document.getElementById('calGrid');
+  grid.innerHTML='';
+  ['일','월','화','수','목','금','토'].forEach((h,i)=>{
+    const d=document.createElement('div');
+    d.className='cal-hdr'+(i===0?' sun':'');
+    d.textContent=h;grid.appendChild(d);
+  });
+  for(let i=0;i<firstDow;i++){
+    const e=document.createElement('div');e.className='day-cell empty';grid.appendChild(e);
+  }
+  for(let d=1;d<=days;d++){
+    const dtype=getDayType(y,m,d);
+    const dow=new Date(y,m,d).getDay();
+    const k=key(y,m,d);
+    const cell=document.createElement('div');
+    cell.className='day-cell '+(dtype==='sunday'?'sunday':dtype==='saturday'?'saturday':dtype==='holiday'?'holiday-pub':'weekday');
+    const nd=document.createElement('div');
+    nd.className='day-num'+(dow===0?' sun-num':'');
+    const ns=document.createElement('span');ns.textContent=d;nd.appendChild(ns);
+    if(dtype!=='weekday'){
+      const tt=document.createElement('span');tt.className='day-type-tag';
+      tt.textContent=dtype==='sunday'?'주휴일':dtype==='saturday'?'무급휴무':'공휴일';
+      nd.appendChild(tt);
+    }
+    cell.appendChild(nd);
+
+    if(dtype==='weekday'||dtype==='saturday'){
+      // 총 근로시간 입력 (8시간 초과분을 시스템이 계산)
+      const r1=document.createElement('div');r1.className='inp-row';
+      const l1=document.createElement('label');l1.textContent='총근무(h)';
+      r1.appendChild(l1);r1.appendChild(makeInput(k,'total','0','has-ext'));
+      cell.appendChild(r1);
+      const r2=document.createElement('div');r2.className='inp-row';
+      const l2=document.createElement('label');l2.textContent='야간(h)';
+      r2.appendChild(l2);r2.appendChild(makeInput(k,'night','0','has-night'));
+      cell.appendChild(r2);
+    } else {
+      // 일요일/공휴일: 총 근로시간 입력
+      const r1=document.createElement('div');r1.className='inp-row';
+      const l1=document.createElement('label');l1.textContent='휴일근로(h)';
+      r1.appendChild(l1);r1.appendChild(makeInput(k,'holi','0','has-holi'));
+      cell.appendChild(r1);
+      const r2=document.createElement('div');r2.className='inp-row';
+      const l2=document.createElement('label');l2.textContent='야간(h)';
+      r2.appendChild(l2);r2.appendChild(makeInput(k,'night','0','has-night'));
+      cell.appendChild(r2);
+    }
+    grid.appendChild(cell);
+  }
+  calcAndRender(y,m);
+}
+
+function calcHoliComp(holi,night){
+  const h8=Math.min(holi,8);
+  const hOver=Math.max(holi-8,0);
+  const nightCapped=Math.min(night,holi);
+  const nightIn8=Math.min(nightCapped,h8);
+  const nightOver=Math.max(nightCapped-h8,0);
+  const dayIn8=h8-nightIn8;
+  const dayOver=hOver-nightOver;
+  return dayIn8*1.5+nightIn8*2.0+dayOver*2.0+nightOver*2.5;
+}
+
+function calcAndRender(y,m){
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  let rows=[];
+  let totExt=0,totNight=0,totHoli=0,totComp=0;
+  const weekMap={};
+
+  for(let d=1;d<=daysInMonth;d++){
+    const dtype=getDayType(y,m,d);
+    const dow=new Date(y,m,d).getDay();
+    const wkStart=new Date(y,m,d);wkStart.setDate(d-dow);
+    const wk=wkStart.toISOString().slice(0,10);
+    const k=key(y,m,d);
+    const sv=state[k]||{};
+
+    if(dtype==='weekday'||dtype==='saturday'){
+      if(!weekMap[wk])weekMap[wk]=[];
+      const total=sv.total||0;
+      const night=Math.min(sv.night||0,total);
+      weekMap[wk].push({d,dtype,dow,total,night,k});
+    } else {
+      const holi=sv.holi||0;
+      if(holi>0){
+        const night=Math.min(sv.night||0,holi);
+        const comp=calcHoliComp(holi,night);
+        const label=dtype==='sunday'?'주휴일 휴일근로':'공휴일 휴일근로';
+        const h8=Math.min(holi,8);const hOver=Math.max(holi-8,0);
+        const nightIn8=Math.min(Math.min(night,holi),h8);
+        const nightOver=Math.max(Math.min(night,holi)-h8,0);
+        let formula='';
+        if(h8-nightIn8>0)formula+=`${(h8-nightIn8).toFixed(1)}h×1.5`;
+        if(nightIn8>0)formula+=(formula?'+':'')+`${nightIn8.toFixed(1)}h×2.0`;
+        if(hOver-nightOver>0)formula+=(formula?'+':'')+`${(hOver-nightOver).toFixed(1)}h×2.0`;
+        if(nightOver>0)formula+=(formula?'+':'')+`${nightOver.toFixed(1)}h×2.5`;
+        rows.push({d,label,ext:holi,night,formula,comp:Math.round(comp*100)/100,noga:false});
+        totHoli+=holi;totComp+=comp;
+      }
+    }
+  }
+
+  Object.entries(weekMap).forEach(([wk,days])=>{
+    if(!days.length)return;
+
+    // 주 단위 총 근로시간 계산 (소정 포함)
+    // 평일: total 그대로, 토요일: total 그대로 (소정은 0이므로 전부 집계)
+    let weekdayTotal=0; // 평일 총 근로시간 합계 (소정 포함)
+    let satTotal=0;     // 토요일 총 근로시간
+    let dayUnitExt=0;   // 일 단위 초과분 합계 (평일 8h 초과 + 토요일 8h 초과)
+
+    days.forEach(dd=>{
+      if(dd.dtype==='weekday'){
+        weekdayTotal+=dd.total;
+        dayUnitExt+=Math.max(dd.total-8,0);
+      } else if(dd.dtype==='saturday'){
+        satTotal=dd.total;
+        dayUnitExt+=Math.max(dd.total-8,0); // 토요일도 8h 초과 시 일 단위 연장
+      }
+    });
+
+    const weekTotalAll=weekdayTotal+satTotal;
+    const weekOver=Math.max(weekTotalAll-40,0); // 주 40h 초과분
+
+    // 최종 연장근로 = max(일단위 초과합, 주단위 초과) — 단, 중복 없이 합산
+    // 실제로는 일단위에서 잡힌 것 + 주단위에서 추가로 잡히는 것
+    const extraFromWeek=Math.max(weekOver-dayUnitExt,0);
+
+    // 평일 연장근로 처리 (일 단위 8h 초과분)
+    days.forEach(dd=>{
+      if(dd.dtype==='weekday'){
+        const ext=Math.max(dd.total-8,0);
+        if(ext>0){
+          // 야간은 연장구간에 해당하는 부분만 적용
+          // total 중 마지막 ext 시간이 연장이므로 야간도 연장구간에 해당하는 만큼만
+          const nightInExt=Math.min(dd.night,ext);
+          const dayPart=ext-nightInExt;
+          const comp=dayPart*1.5+nightInExt*2.0;
+          let formula='';
+          if(dayPart>0)formula+=`${dayPart.toFixed(1)}h×1.5`;
+          if(nightInExt>0)formula+=(formula?'+':'')+`${nightInExt.toFixed(1)}h×2.0`;
+          rows.push({d:dd.d,label:'평일 연장(일단위)',ext,night:nightInExt,formula,comp:Math.round(comp*100)/100,noga:false});
+          totExt+=ext;totNight+=nightInExt;totComp+=comp;
+        }
+      }
+    });
+
+    // 토요일 처리
+    const satDay=days.find(d=>d.dtype==='saturday');
+    if(satDay&&satDay.total>0){
+      const satDayUnitExt=Math.max(satDay.total-8,0); // 토요일 8h 초과분 (일 단위)
+
+      // 1) 일 단위 초과분 (토요일 8h 초과)
+      if(satDayUnitExt>0){
+        const nightInExt=Math.min(satDay.night,satDayUnitExt);
+        const dayPart=satDayUnitExt-nightInExt;
+        const comp=dayPart*1.5+nightInExt*2.0;
+        let formula='';
+        if(dayPart>0)formula+=`${dayPart.toFixed(1)}h×1.5`;
+        if(nightInExt>0)formula+=(formula?'+':'')+`${nightInExt.toFixed(1)}h×2.0`;
+        rows.push({d:satDay.d,label:'토요일 연장(일단위)',ext:satDayUnitExt,night:nightInExt,formula,comp:Math.round(comp*100)/100,noga:false});
+        totExt+=satDayUnitExt;totNight+=nightInExt;totComp+=comp;
+      }
+
+      // 2) 주 단위 추가분 (일 단위에서 잡히지 않은 주 40h 초과분)
+      if(extraFromWeek>0){
+        // 주 단위 추가분은 토요일의 8h 이내 구간에서 발생
+        // (8h 초과분은 이미 일 단위로 처리됨)
+        const satWeekExtra=Math.min(extraFromWeek,satDay.total-satDayUnitExt);
+        if(satWeekExtra>0){
+          // 야간 중 이미 일단위에 쓴 부분 제외
+          const nightUsed=Math.min(satDay.night,satDayUnitExt);
+          const nightRemain=Math.max(satDay.night-nightUsed,0);
+          const nightInWeek=Math.min(nightRemain,satWeekExtra);
+          const dayPart=satWeekExtra-nightInWeek;
+          const comp=dayPart*1.5+nightInWeek*2.0;
+          let formula='';
+          if(dayPart>0)formula+=`${dayPart.toFixed(1)}h×1.5`;
+          if(nightInWeek>0)formula+=(formula?'+':'')+`${nightInWeek.toFixed(1)}h×2.0`;
+          rows.push({d:satDay.d,label:'토요일 연장(주단위)',ext:satWeekExtra,night:nightInWeek,formula,comp:Math.round(comp*100)/100,noga:false});
+          totExt+=satWeekExtra;totNight+=nightInWeek;totComp+=comp;
+        }
+      }
+
+      // 3) 가산 없는 구간 (주 40h 이내이고 일 단위도 안 넘는 구간)
+      const satNoGa=Math.max(satDay.total-satDayUnitExt-Math.min(extraFromWeek,Math.max(satDay.total-satDayUnitExt,0)),0);
+      if(satNoGa>0){
+        rows.push({d:satDay.d,label:'토요일(40h이내)',ext:satNoGa,night:0,formula:'주40h 미초과',comp:0,noga:true});
+      }
+    }
+
+    // 평일에서 주 단위 추가분이 발생하는 경우 (토요일 없이 평일만으로 40h 초과)
+    // 이 경우는 평일 각 날의 소정(8h) 이내 구간에서 주초과가 발생
+    // 단, 이미 일 단위로 처리된 ext 이후의 추가분
+    if(extraFromWeek>0&&(!satDay||satDay.total===0)){
+      // 토요일 없이 평일만으로 주 40h 초과한 경우
+      // 이미 일단위 ext들의 합 = dayUnitExt
+      // weekOver = weekTotalAll - 40
+      // extraFromWeek = weekOver - dayUnitExt
+      // 이 추가분은 어느 날의 소정근로에서 나온 것인지 특정 어려우므로
+      // 마지막 날(금요일)부터 역순으로 배분
+      let remaining=extraFromWeek;
+      const wkDays=[...days].filter(d=>d.dtype==='weekday').reverse();
+      for(const dd of wkDays){
+        if(remaining<=0)break;
+        const sojeong=Math.min(dd.total,8); // 이날의 소정 구간 (최대 8h)
+        const available=sojeong;
+        if(available<=0)continue;
+        const used=Math.min(remaining,available);
+        remaining-=used;
+        const nightInUsed=Math.min(dd.night,used);
+        const dayPart=used-nightInUsed;
+        const comp=dayPart*1.5+nightInUsed*2.0;
+        let formula='';
+        if(dayPart>0)formula+=`${dayPart.toFixed(1)}h×1.5`;
+        if(nightInUsed>0)formula+=(formula?'+':'')+`${nightInUsed.toFixed(1)}h×2.0`;
+        rows.push({d:dd.d,label:'연장(주단위추가)',ext:used,night:nightInUsed,formula,comp:Math.round(comp*100)/100,noga:false});
+        totExt+=used;totNight+=nightInUsed;totComp+=comp;
+      }
+    }
+  });
+
+  rows.sort((a,b)=>a.d-b.d);
+  const sc=document.getElementById('summaryCard');
+  sc.style.display='block';
+
+  const sg=document.getElementById('summaryGrid');
+  sg.innerHTML='';
+  [{label:'연장근로시간 합계',val:totExt.toFixed(1),unit:'시간'},{label:'야간 가산 적용',val:totNight.toFixed(1),unit:'시간'},{label:'휴일 근로',val:totHoli.toFixed(1),unit:'시간'},{label:'보상휴가시간 합계',val:totComp.toFixed(2),unit:'시간',accent:true}].forEach(mt=>{
+    const mc=document.createElement('div');
+    mc.className='metric'+(mt.accent?' accent':'');
+    mc.innerHTML=`<div class="ml">${mt.label}</div><div class="mv">${mt.val}<span class="mu">${mt.unit}</span></div>`;
+    sg.appendChild(mc);
+  });
+
+  const tb=document.getElementById('bdBody');
+  tb.innerHTML='';
+  if(rows.length===0)return;
+  rows.forEach(r=>{
+    const tr=document.createElement('tr');
+    if(r.noga){
+      tr.innerHTML=`<td>${m+1}/${r.d}</td><td class="noga">${r.label}</td><td>${r.ext.toFixed(1)}</td><td>-</td><td class="noga">${r.formula}</td><td class="noga">-</td>`;
+    } else {
+      tr.innerHTML=`<td>${m+1}/${r.d}</td><td>${r.label}</td><td>${(r.ext||0).toFixed(1)}</td><td>${(r.night||0).toFixed(1)}</td><td style="font-size:12px;color:var(--text2)">${r.formula}</td><td><strong>${r.comp.toFixed(2)}</strong></td>`;
+    }
+    tb.appendChild(tr);
+  });
+  const totalTr=document.createElement('tr');
+  totalTr.className='total-row';
+  totalTr.innerHTML=`<td colspan="5">합계</td><td><strong>${totComp.toFixed(2)}h</strong></td>`;
+  tb.appendChild(totalTr);
+}
+
+function resetAll(){
+  state={};
+  renderCal();
+}
+
+renderCal();
+</script>
+</body>
+</html>
