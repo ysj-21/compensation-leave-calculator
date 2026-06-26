@@ -26,7 +26,7 @@
   }
 }
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif;background:var(--bg3);color:var(--text);font-size:15px;line-height:1.6;min-height:100vh}
-.page{max-width:860px;margin:0 auto;padding:2rem 1rem}
+.page{max-width:920px;margin:0 auto;padding:2rem 1rem}
 .page-header{margin-bottom:2rem}
 .page-header h1{font-size:22px;font-weight:500;color:var(--text);margin-bottom:6px}
 .page-header p{font-size:13px;color:var(--text2);line-height:1.7}
@@ -39,6 +39,9 @@ button{background:var(--bg);color:var(--text);border:0.5px solid var(--border2);
 button:hover{background:var(--bg2)}
 button.primary{background:var(--blue-bg);color:var(--blue-text);border-color:var(--blue-border)}
 button.primary:hover{opacity:0.85}
+button.nav-btn{font-size:18px;padding:6px 12px;min-width:36px}
+.month-nav{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.month-nav-title{font-size:16px;font-weight:500;min-width:100px;text-align:center}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
 .cal-hdr{text-align:center;font-size:11px;font-weight:500;padding:6px 0;color:var(--text2)}
 .cal-hdr.sun{color:var(--red-text)}
@@ -47,6 +50,12 @@ button.primary:hover{opacity:0.85}
 .day-cell.sunday{background:var(--red-bg);border-color:var(--red-border)}
 .day-cell.saturday{background:var(--bg2)}
 .day-cell.holiday-pub{background:var(--red-bg);border-color:var(--red-border)}
+/* 이번 달 마지막 주에 속하는 다음달 날짜 (회색 빗금 배경) */
+.day-cell.overflow-next{background:repeating-linear-gradient(135deg,var(--bg) 0px,var(--bg) 6px,var(--bg2) 6px,var(--bg2) 8px);border-color:var(--border);opacity:0.85}
+.day-cell.overflow-next.sunday{background:repeating-linear-gradient(135deg,var(--red-bg) 0px,var(--red-bg) 6px,#fde0e0 6px,#fde0e0 8px)}
+.day-cell.overflow-next.saturday{background:repeating-linear-gradient(135deg,var(--bg2) 0px,var(--bg2) 6px,var(--bg3) 6px,var(--bg3) 8px)}
+.day-cell.overflow-next.holiday-pub{background:repeating-linear-gradient(135deg,var(--red-bg) 0px,var(--red-bg) 6px,#fde0e0 6px,#fde0e0 8px)}
+.overflow-label{font-size:8px;color:var(--text3);margin-bottom:2px}
 .day-num{font-size:11px;font-weight:500;color:var(--text2);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center}
 .day-num.sun-num{color:var(--red-text)}
 .day-type-tag{font-size:9px;color:var(--text3)}
@@ -72,6 +81,7 @@ button.primary:hover{opacity:0.85}
 .notice p{margin-bottom:4px}
 .notice p:last-child{margin-bottom:0}
 .section-title{font-size:14px;font-weight:500;color:var(--text);margin-bottom:10px}
+.overflow-tip{font-size:11px;color:var(--text3);margin-top:6px;padding:6px 10px;background:var(--bg2);border-radius:var(--radius)}
 @media(max-width:600px){
   .cal-grid{gap:2px}
   .day-cell{min-height:70px;padding:4px}
@@ -94,19 +104,24 @@ button.primary:hover{opacity:0.85}
       <label>월</label>
       <select id="selMonth"></select>
       <button class="primary" onclick="renderCal()">달력 보기</button>
-      <button onclick="resetAll()">초기화</button>
+      <button onclick="resetAll()">전체 초기화</button>
     </div>
   </div>
 
   <div class="card" id="calCard" style="display:none">
-    <div class="section-title" id="calTitle"></div>
+    <div class="month-nav">
+      <button class="nav-btn" onclick="prevMonth()">‹</button>
+      <div class="month-nav-title" id="calTitle"></div>
+      <button class="nav-btn" onclick="nextMonth()">›</button>
+    </div>
     <div class="cal-grid" id="calGrid"></div>
+    <div class="overflow-tip" id="overflowTip" style="display:none"></div>
   </div>
 
   <div id="summaryCard" style="display:none">
     <div class="summary-grid" id="summaryGrid"></div>
     <div class="card">
-      <div class="section-title">일별 산정 내역</div>
+      <div class="section-title" id="bdTitle">일별 산정 내역</div>
       <div style="overflow-x:auto">
         <table class="breakdown-table" id="bdTable">
           <thead><tr><th>날짜</th><th>구분</th><th>근로시간(h)</th><th>야간(h)</th><th>산정 방식</th><th>보상휴가(h)</th></tr></thead>
@@ -118,22 +133,37 @@ button.primary:hover{opacity:0.85}
 
   <div class="card" style="margin-top:1rem">
     <div class="notice">
-      <p>※ 평일 — "총근무(h)": 그날의 실제 총 근로시간을 입력하세요. 8시간 초과분이 자동으로 연장근로로 산정됩니다.</p>
-      <p>※ 토요일(무급휴무일) — "총근무(h)": 그날의 실제 총 근로시간을 입력하세요. 8시간 초과분(일 단위) 및 주 40시간 초과분(주 단위)이 자동 산정됩니다.</p>
+      <p>※ 평일·토요일 — "총근무(h)": 그날의 실제 총 근로시간을 입력하세요. 8시간 초과분(일 단위) 및 주 40시간 초과분(주 단위)이 자동 산정됩니다.</p>
       <p>※ 일요일·공휴일(유급휴일) — "휴일근로(h)": 그날의 실제 총 근로시간을 입력하세요.</p>
       <p>※ "야간(h)": 근로시간 중 22:00~06:00에 해당하는 시간을 입력하세요.</p>
-      <p>※ 주 단위 산정은 일요일~토요일 1주 기준으로 계산되며, 일·주 중복분은 자동 제외됩니다.</p>
+      <p>※ 달의 마지막 주가 다음 달로 넘어가는 경우, 다음 달 첫째 주 날짜가 달력 하단에 표시됩니다. 연속 입력하면 해당 주의 주 단위 계산이 자동으로 합산됩니다.</p>
       <p>※ 자정을 교차하는 근무(예: 토 22시~일 02시)는 날짜별로 나눠서 각각 입력하세요.</p>
     </div>
   </div>
 </div>
 
 <script>
+// ── 공휴일 데이터 (2024~2027) ──────────────────────────────────────────
 const HOLIDAYS={
-  "2024":["2024-01-01","2024-02-09","2024-02-10","2024-02-11","2024-02-12","2024-03-01","2024-04-10","2024-05-05","2024-05-06","2024-05-15","2024-06-06","2024-08-15","2024-09-16","2024-09-17","2024-09-18","2024-10-03","2024-10-09","2024-12-25"],
-  "2025":["2025-01-01","2025-01-28","2025-01-29","2025-01-30","2025-03-01","2025-03-03","2025-05-05","2025-05-06","2025-06-06","2025-08-15","2025-10-03","2025-10-06","2025-10-07","2025-10-08","2025-10-09","2025-12-25"],
-  "2026":["2026-01-01","2026-02-17","2026-02-18","2026-02-19","2026-03-01","2026-03-02","2026-05-05","2026-05-25","2026-06-06","2026-08-17","2026-09-24","2026-09-25","2026-09-28","2026-10-05","2026-10-09","2026-12-25"]
+  "2024":["2024-01-01","2024-02-09","2024-02-10","2024-02-11","2024-02-12",
+    "2024-03-01","2024-04-10","2024-05-05","2024-05-06","2024-05-15",
+    "2024-06-06","2024-08-15","2024-09-16","2024-09-17","2024-09-18",
+    "2024-10-03","2024-10-09","2024-12-25"],
+  "2025":["2025-01-01","2025-01-28","2025-01-29","2025-01-30",
+    "2025-03-01","2025-03-03","2025-05-05","2025-05-06","2025-06-06",
+    "2025-08-15","2025-10-03","2025-10-06","2025-10-07","2025-10-08","2025-10-09","2025-12-25"],
+  "2026":["2026-01-01","2026-02-17","2026-02-18","2026-02-19",
+    "2026-03-01","2026-03-02","2026-05-05","2026-05-25","2026-06-06",
+    "2026-08-17","2026-09-24","2026-09-25","2026-09-28",
+    "2026-10-05","2026-10-09","2026-12-25"],
+  "2027":["2027-01-01","2027-01-15","2027-01-27","2027-02-17","2027-02-18",
+    "2027-03-01","2027-05-05","2027-05-24","2027-06-06",
+    "2027-08-16","2027-09-14","2027-09-15","2027-09-16",
+    "2027-10-04","2027-10-11","2027-12-27"]
 };
+// 공휴일이 확정된 마지막 연도
+const LAST_HOLIDAY_YEAR = 2027;
+
 const ALL_HOLIDAYS=Object.values(HOLIDAYS).flat();
 
 function pad(n){return String(n).padStart(2,'0');}
@@ -147,13 +177,17 @@ function getDayType(y,m,d){
   return'weekday';
 }
 
-let state={};
+// ── 상태 ─────────────────────────────────────────────────────────────
+let state={};  // key: "y-m-d" → {total, night, holi}
+let curY, curM;
+
 function key(y,m,d){return`${y}-${m}-${d}`;}
 
+// ── 연도/월 셀렉트 초기화 ────────────────────────────────────────────
 const selY=document.getElementById('selYear');
 const selM=document.getElementById('selMonth');
 const now=new Date();
-for(let y=2024;y<=2027;y++){
+for(let y=2024;y<=LAST_HOLIDAY_YEAR;y++){
   const o=document.createElement('option');
   o.value=y;o.textContent=y+'년';
   if(y===now.getFullYear())o.selected=true;
@@ -166,7 +200,26 @@ for(let m=0;m<12;m++){
   selM.appendChild(o);
 }
 
-function makeInput(k,field,placeholder,cls){
+// ── 월 이동 ──────────────────────────────────────────────────────────
+function prevMonth(){
+  if(curM===0){if(curY<=2024)return; curY--;curM=11;}
+  else curM--;
+  syncSelects();renderCal();
+}
+function nextMonth(){
+  // 다음 달이 공휴일 데이터가 있는 범위를 넘지 않게 제한
+  let ny=curY,nm=curM+1;
+  if(nm>11){ny++;nm=0;}
+  if(ny>LAST_HOLIDAY_YEAR)return;
+  curY=ny;curM=nm;
+  syncSelects();renderCal();
+}
+function syncSelects(){
+  selY.value=curY;selM.value=curM;
+}
+
+// ── 입력 필드 생성 ───────────────────────────────────────────────────
+function makeInput(k,field,placeholder,cls,onchange){
   const inp=document.createElement('input');
   inp.type='number';inp.min='0';inp.max='24';inp.step='0.5';inp.placeholder=placeholder||'0';
   const sv=state[k]||{};
@@ -177,70 +230,130 @@ function makeInput(k,field,placeholder,cls){
     const v=parseFloat(this.value)||0;
     state[k][field]=v;
     this.classList.toggle(cls,v>0);
-    const y=parseInt(selY.value),mo=parseInt(selM.value);
-    calcAndRender(y,mo);
+    onchange();
   };
   return inp;
 }
 
+// ── 달력 렌더링 ──────────────────────────────────────────────────────
 function renderCal(){
-  const y=parseInt(selY.value),m=parseInt(selM.value);
-  const days=new Date(y,m+1,0).getDate();
-  const firstDow=new Date(y,m,1).getDay();
+  curY=parseInt(selY.value);curM=parseInt(selM.value);
+  const y=curY,m=curM;
+
+  // 공휴일 데이터 범위 체크
+  if(y>LAST_HOLIDAY_YEAR){
+    alert(`공휴일 데이터는 ${LAST_HOLIDAY_YEAR}년까지만 제공됩니다.`);
+    return;
+  }
+
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const firstDow=new Date(y,m,1).getDay();   // 이번 달 1일의 요일
+  const lastDow=new Date(y,m,daysInMonth).getDay(); // 이번 달 마지막 날의 요일
+
   document.getElementById('calTitle').textContent=`${y}년 ${m+1}월`;
   document.getElementById('calCard').style.display='block';
+
   const grid=document.getElementById('calGrid');
   grid.innerHTML='';
+
+  // 요일 헤더
   ['일','월','화','수','목','금','토'].forEach((h,i)=>{
     const d=document.createElement('div');
     d.className='cal-hdr'+(i===0?' sun':'');
     d.textContent=h;grid.appendChild(d);
   });
+
+  // 이번 달 1일 앞 빈칸
   for(let i=0;i<firstDow;i++){
     const e=document.createElement('div');e.className='day-cell empty';grid.appendChild(e);
   }
-  for(let d=1;d<=days;d++){
-    const dtype=getDayType(y,m,d);
-    const dow=new Date(y,m,d).getDay();
-    const k=key(y,m,d);
-    const cell=document.createElement('div');
-    cell.className='day-cell '+(dtype==='sunday'?'sunday':dtype==='saturday'?'saturday':dtype==='holiday'?'holiday-pub':'weekday');
-    const nd=document.createElement('div');
-    nd.className='day-num'+(dow===0?' sun-num':'');
-    const ns=document.createElement('span');ns.textContent=d;nd.appendChild(ns);
-    if(dtype!=='weekday'){
-      const tt=document.createElement('span');tt.className='day-type-tag';
-      tt.textContent=dtype==='sunday'?'주휴일':dtype==='saturday'?'무급휴무':'공휴일';
-      nd.appendChild(tt);
-    }
-    cell.appendChild(nd);
 
-    if(dtype==='weekday'||dtype==='saturday'){
-      // 총 근로시간 입력 (8시간 초과분을 시스템이 계산)
-      const r1=document.createElement('div');r1.className='inp-row';
-      const l1=document.createElement('label');l1.textContent='총근무(h)';
-      r1.appendChild(l1);r1.appendChild(makeInput(k,'total','0','has-ext'));
-      cell.appendChild(r1);
-      const r2=document.createElement('div');r2.className='inp-row';
-      const l2=document.createElement('label');l2.textContent='야간(h)';
-      r2.appendChild(l2);r2.appendChild(makeInput(k,'night','0','has-night'));
-      cell.appendChild(r2);
-    } else {
-      // 일요일/공휴일: 총 근로시간 입력
-      const r1=document.createElement('div');r1.className='inp-row';
-      const l1=document.createElement('label');l1.textContent='휴일근로(h)';
-      r1.appendChild(l1);r1.appendChild(makeInput(k,'holi','0','has-holi'));
-      cell.appendChild(r1);
-      const r2=document.createElement('div');r2.className='inp-row';
-      const l2=document.createElement('label');l2.textContent='야간(h)';
-      r2.appendChild(l2);r2.appendChild(makeInput(k,'night','0','has-night'));
-      cell.appendChild(r2);
-    }
-    grid.appendChild(cell);
+  // 이번 달 날짜
+  for(let d=1;d<=daysInMonth;d++){
+    grid.appendChild(makeDayCell(y,m,d,false));
   }
+
+  // ── 이번 달 마지막 주가 다음 달로 넘어가는 경우 다음 달 날짜 추가 ──
+  // lastDow가 토요일(6)이 아니면 다음 달 날짜가 같은 주에 있음
+  const overflowTip=document.getElementById('overflowTip');
+  if(lastDow!==6){
+    // 다음 달 정보
+    let ny=y,nm=m+1;
+    if(nm>11){ny++;nm=0;}
+
+    if(ny<=LAST_HOLIDAY_YEAR){
+      const overflowCount=6-lastDow; // 토요일까지 남은 칸 수
+      for(let d=1;d<=overflowCount;d++){
+        grid.appendChild(makeDayCell(ny,nm,d,true));
+      }
+      overflowTip.style.display='block';
+      overflowTip.textContent=`▲ 빗금 셀은 ${ny}년 ${nm+1}월 날짜입니다. 이번 달 마지막 주와 같은 주로 계산됩니다.`;
+    }
+  } else {
+    overflowTip.style.display='none';
+  }
+
   calcAndRender(y,m);
 }
 
+// ── 날짜 셀 생성 ─────────────────────────────────────────────────────
+function makeDayCell(y,m,d,isOverflow){
+  const dtype=getDayType(y,m,d);
+  const dow=new Date(y,m,d).getDay();
+  const k=key(y,m,d);
+
+  const cell=document.createElement('div');
+  let cls='day-cell ';
+  if(dtype==='sunday')cls+='sunday';
+  else if(dtype==='saturday')cls+='saturday';
+  else if(dtype==='holiday')cls+='holiday-pub';
+  else cls+='weekday';
+  if(isOverflow)cls+=' overflow-next';
+  cell.className=cls;
+
+  // 다음달 표시
+  if(isOverflow){
+    const ol=document.createElement('div');
+    ol.className='overflow-label';ol.textContent=`${m+1}월→`;
+    cell.appendChild(ol);
+  }
+
+  // 날짜 + 타입 태그
+  const nd=document.createElement('div');
+  nd.className='day-num'+(dow===0?' sun-num':'');
+  const ns=document.createElement('span');ns.textContent=d;nd.appendChild(ns);
+  if(dtype!=='weekday'){
+    const tt=document.createElement('span');tt.className='day-type-tag';
+    tt.textContent=dtype==='sunday'?'주휴일':dtype==='saturday'?'무급휴무':'공휴일';
+    nd.appendChild(tt);
+  }
+  cell.appendChild(nd);
+
+  const onchange=()=>calcAndRender(curY,curM);
+
+  if(dtype==='weekday'||dtype==='saturday'){
+    const r1=document.createElement('div');r1.className='inp-row';
+    const l1=document.createElement('label');l1.textContent='총근무(h)';
+    r1.appendChild(l1);r1.appendChild(makeInput(k,'total','0','has-ext',onchange));
+    cell.appendChild(r1);
+    const r2=document.createElement('div');r2.className='inp-row';
+    const l2=document.createElement('label');l2.textContent='야간(h)';
+    r2.appendChild(l2);r2.appendChild(makeInput(k,'night','0','has-night',onchange));
+    cell.appendChild(r2);
+  } else {
+    const r1=document.createElement('div');r1.className='inp-row';
+    const l1=document.createElement('label');l1.textContent='휴일근로(h)';
+    r1.appendChild(l1);r1.appendChild(makeInput(k,'holi','0','has-holi',onchange));
+    cell.appendChild(r1);
+    const r2=document.createElement('div');r2.className='inp-row';
+    const l2=document.createElement('label');l2.textContent='야간(h)';
+    r2.appendChild(l2);r2.appendChild(makeInput(k,'night','0','has-night',onchange));
+    cell.appendChild(r2);
+  }
+  return cell;
+}
+
+// ── 가산임금 계산 ────────────────────────────────────────────────────
 function calcHoliComp(holi,night){
   const h8=Math.min(holi,8);
   const hOver=Math.max(holi-8,0);
@@ -252,96 +365,66 @@ function calcHoliComp(holi,night){
   return dayIn8*1.5+nightIn8*2.0+dayOver*2.0+nightOver*2.5;
 }
 
+// ── 전체 계산 및 렌더 ────────────────────────────────────────────────
 function calcAndRender(y,m){
   const daysInMonth=new Date(y,m+1,0).getDate();
+  const lastDow=new Date(y,m,daysInMonth).getDay();
+
+  // 이번 달 마지막 주에 포함되는 다음 달 날짜들
+  let overflowDays=[];
+  if(lastDow!==6){
+    let ny=y,nm=m+1;
+    if(nm>11){ny++;nm=0;}
+    if(ny<=LAST_HOLIDAY_YEAR){
+      const cnt=6-lastDow;
+      for(let d=1;d<=cnt;d++) overflowDays.push({y:ny,m:nm,d});
+    }
+  }
+
   let rows=[];
   let totExt=0,totNight=0,totHoli=0,totComp=0;
   const weekMap={};
 
+  // 이번 달 날짜 처리
   for(let d=1;d<=daysInMonth;d++){
-    const dtype=getDayType(y,m,d);
-    const dow=new Date(y,m,d).getDay();
-    const wkStart=new Date(y,m,d);wkStart.setDate(d-dow);
-    const wk=wkStart.toISOString().slice(0,10);
-    const k=key(y,m,d);
-    const sv=state[k]||{};
-
-    if(dtype==='weekday'||dtype==='saturday'){
-      if(!weekMap[wk])weekMap[wk]=[];
-      const total=sv.total||0;
-      const night=Math.min(sv.night||0,total);
-      weekMap[wk].push({d,dtype,dow,total,night,k});
-    } else {
-      const holi=sv.holi||0;
-      if(holi>0){
-        const night=Math.min(sv.night||0,holi);
-        const comp=calcHoliComp(holi,night);
-        const label=dtype==='sunday'?'주휴일 휴일근로':'공휴일 휴일근로';
-        const h8=Math.min(holi,8);const hOver=Math.max(holi-8,0);
-        const nightIn8=Math.min(Math.min(night,holi),h8);
-        const nightOver=Math.max(Math.min(night,holi)-h8,0);
-        let formula='';
-        if(h8-nightIn8>0)formula+=`${(h8-nightIn8).toFixed(1)}h×1.5`;
-        if(nightIn8>0)formula+=(formula?'+':'')+`${nightIn8.toFixed(1)}h×2.0`;
-        if(hOver-nightOver>0)formula+=(formula?'+':'')+`${(hOver-nightOver).toFixed(1)}h×2.0`;
-        if(nightOver>0)formula+=(formula?'+':'')+`${nightOver.toFixed(1)}h×2.5`;
-        rows.push({d,label,ext:holi,night,formula,comp:Math.round(comp*100)/100,noga:false});
-        totHoli+=holi;totComp+=comp;
-      }
-    }
+    processDay(y,m,d,weekMap,rows);
+  }
+  // 다음 달 오버플로우 날짜 처리 (주 단위 계산에만 참여)
+  for(const od of overflowDays){
+    processDay(od.y,od.m,od.d,weekMap,rows);
   }
 
+  // 주 단위 계산
   Object.entries(weekMap).forEach(([wk,days])=>{
     if(!days.length)return;
-
-    // 주 단위 총 근로시간 계산 (소정 포함)
-    // 평일: total 그대로, 토요일: total 그대로 (소정은 0이므로 전부 집계)
-    let weekdayTotal=0; // 평일 총 근로시간 합계 (소정 포함)
-    let satTotal=0;     // 토요일 총 근로시간
-    let dayUnitExt=0;   // 일 단위 초과분 합계 (평일 8h 초과 + 토요일 8h 초과)
-
+    let weekdayTotal=0,satTotal=0,dayUnitExt=0;
     days.forEach(dd=>{
-      if(dd.dtype==='weekday'){
-        weekdayTotal+=dd.total;
-        dayUnitExt+=Math.max(dd.total-8,0);
-      } else if(dd.dtype==='saturday'){
-        satTotal=dd.total;
-        dayUnitExt+=Math.max(dd.total-8,0); // 토요일도 8h 초과 시 일 단위 연장
-      }
+      if(dd.dtype==='weekday'){weekdayTotal+=dd.total;dayUnitExt+=Math.max(dd.total-8,0);}
+      else if(dd.dtype==='saturday'){satTotal=dd.total;dayUnitExt+=Math.max(dd.total-8,0);}
     });
-
     const weekTotalAll=weekdayTotal+satTotal;
-    const weekOver=Math.max(weekTotalAll-40,0); // 주 40h 초과분
-
-    // 최종 연장근로 = max(일단위 초과합, 주단위 초과) — 단, 중복 없이 합산
-    // 실제로는 일단위에서 잡힌 것 + 주단위에서 추가로 잡히는 것
+    const weekOver=Math.max(weekTotalAll-40,0);
     const extraFromWeek=Math.max(weekOver-dayUnitExt,0);
 
-    // 평일 연장근로 처리 (일 단위 8h 초과분)
+    // 평일 연장(일 단위)
     days.forEach(dd=>{
-      if(dd.dtype==='weekday'){
-        const ext=Math.max(dd.total-8,0);
-        if(ext>0){
-          // 야간은 연장구간에 해당하는 부분만 적용
-          // total 중 마지막 ext 시간이 연장이므로 야간도 연장구간에 해당하는 만큼만
-          const nightInExt=Math.min(dd.night,ext);
-          const dayPart=ext-nightInExt;
-          const comp=dayPart*1.5+nightInExt*2.0;
-          let formula='';
-          if(dayPart>0)formula+=`${dayPart.toFixed(1)}h×1.5`;
-          if(nightInExt>0)formula+=(formula?'+':'')+`${nightInExt.toFixed(1)}h×2.0`;
-          rows.push({d:dd.d,label:'평일 연장(일단위)',ext,night:nightInExt,formula,comp:Math.round(comp*100)/100,noga:false});
-          totExt+=ext;totNight+=nightInExt;totComp+=comp;
-        }
-      }
+      if(dd.dtype!=='weekday')return;
+      const ext=Math.max(dd.total-8,0);
+      if(ext<=0)return;
+      const nightInExt=Math.min(dd.night,ext);
+      const dayPart=ext-nightInExt;
+      const comp=dayPart*1.5+nightInExt*2.0;
+      let formula='';
+      if(dayPart>0)formula+=`${dayPart.toFixed(1)}h×1.5`;
+      if(nightInExt>0)formula+=(formula?'+':'')+`${nightInExt.toFixed(1)}h×2.0`;
+      rows.push({y:dd.y,m:dd.m,d:dd.d,label:'평일 연장(일단위)',ext,night:nightInExt,formula,comp:Math.round(comp*100)/100,noga:false});
+      totExt+=ext;totNight+=nightInExt;totComp+=comp;
     });
 
     // 토요일 처리
     const satDay=days.find(d=>d.dtype==='saturday');
     if(satDay&&satDay.total>0){
-      const satDayUnitExt=Math.max(satDay.total-8,0); // 토요일 8h 초과분 (일 단위)
-
-      // 1) 일 단위 초과분 (토요일 8h 초과)
+      const satDayUnitExt=Math.max(satDay.total-8,0);
       if(satDayUnitExt>0){
         const nightInExt=Math.min(satDay.night,satDayUnitExt);
         const dayPart=satDayUnitExt-nightInExt;
@@ -349,17 +432,12 @@ function calcAndRender(y,m){
         let formula='';
         if(dayPart>0)formula+=`${dayPart.toFixed(1)}h×1.5`;
         if(nightInExt>0)formula+=(formula?'+':'')+`${nightInExt.toFixed(1)}h×2.0`;
-        rows.push({d:satDay.d,label:'토요일 연장(일단위)',ext:satDayUnitExt,night:nightInExt,formula,comp:Math.round(comp*100)/100,noga:false});
+        rows.push({y:satDay.y,m:satDay.m,d:satDay.d,label:'토요일 연장(일단위)',ext:satDayUnitExt,night:nightInExt,formula,comp:Math.round(comp*100)/100,noga:false});
         totExt+=satDayUnitExt;totNight+=nightInExt;totComp+=comp;
       }
-
-      // 2) 주 단위 추가분 (일 단위에서 잡히지 않은 주 40h 초과분)
       if(extraFromWeek>0){
-        // 주 단위 추가분은 토요일의 8h 이내 구간에서 발생
-        // (8h 초과분은 이미 일 단위로 처리됨)
         const satWeekExtra=Math.min(extraFromWeek,satDay.total-satDayUnitExt);
         if(satWeekExtra>0){
-          // 야간 중 이미 일단위에 쓴 부분 제외
           const nightUsed=Math.min(satDay.night,satDayUnitExt);
           const nightRemain=Math.max(satDay.night-nightUsed,0);
           const nightInWeek=Math.min(nightRemain,satWeekExtra);
@@ -368,34 +446,23 @@ function calcAndRender(y,m){
           let formula='';
           if(dayPart>0)formula+=`${dayPart.toFixed(1)}h×1.5`;
           if(nightInWeek>0)formula+=(formula?'+':'')+`${nightInWeek.toFixed(1)}h×2.0`;
-          rows.push({d:satDay.d,label:'토요일 연장(주단위)',ext:satWeekExtra,night:nightInWeek,formula,comp:Math.round(comp*100)/100,noga:false});
+          rows.push({y:satDay.y,m:satDay.m,d:satDay.d,label:'토요일 연장(주단위)',ext:satWeekExtra,night:nightInWeek,formula,comp:Math.round(comp*100)/100,noga:false});
           totExt+=satWeekExtra;totNight+=nightInWeek;totComp+=comp;
         }
       }
-
-      // 3) 가산 없는 구간 (주 40h 이내이고 일 단위도 안 넘는 구간)
       const satNoGa=Math.max(satDay.total-satDayUnitExt-Math.min(extraFromWeek,Math.max(satDay.total-satDayUnitExt,0)),0);
       if(satNoGa>0){
-        rows.push({d:satDay.d,label:'토요일(40h이내)',ext:satNoGa,night:0,formula:'주40h 미초과',comp:0,noga:true});
+        rows.push({y:satDay.y,m:satDay.m,d:satDay.d,label:'토요일(40h이내)',ext:satNoGa,night:0,formula:'주40h 미초과',comp:0,noga:true});
       }
     }
 
-    // 평일에서 주 단위 추가분이 발생하는 경우 (토요일 없이 평일만으로 40h 초과)
-    // 이 경우는 평일 각 날의 소정(8h) 이내 구간에서 주초과가 발생
-    // 단, 이미 일 단위로 처리된 ext 이후의 추가분
+    // 토요일 없이 평일만으로 주 40h 초과
     if(extraFromWeek>0&&(!satDay||satDay.total===0)){
-      // 토요일 없이 평일만으로 주 40h 초과한 경우
-      // 이미 일단위 ext들의 합 = dayUnitExt
-      // weekOver = weekTotalAll - 40
-      // extraFromWeek = weekOver - dayUnitExt
-      // 이 추가분은 어느 날의 소정근로에서 나온 것인지 특정 어려우므로
-      // 마지막 날(금요일)부터 역순으로 배분
       let remaining=extraFromWeek;
       const wkDays=[...days].filter(d=>d.dtype==='weekday').reverse();
       for(const dd of wkDays){
         if(remaining<=0)break;
-        const sojeong=Math.min(dd.total,8); // 이날의 소정 구간 (최대 8h)
-        const available=sojeong;
+        const available=Math.min(dd.total,8);
         if(available<=0)continue;
         const used=Math.min(remaining,available);
         remaining-=used;
@@ -405,34 +472,49 @@ function calcAndRender(y,m){
         let formula='';
         if(dayPart>0)formula+=`${dayPart.toFixed(1)}h×1.5`;
         if(nightInUsed>0)formula+=(formula?'+':'')+`${nightInUsed.toFixed(1)}h×2.0`;
-        rows.push({d:dd.d,label:'연장(주단위추가)',ext:used,night:nightInUsed,formula,comp:Math.round(comp*100)/100,noga:false});
+        rows.push({y:dd.y,m:dd.m,d:dd.d,label:'연장(주단위추가)',ext:used,night:nightInUsed,formula,comp:Math.round(comp*100)/100,noga:false});
         totExt+=used;totNight+=nightInUsed;totComp+=comp;
       }
     }
   });
 
-  rows.sort((a,b)=>a.d-b.d);
+  // 날짜순 정렬
+  rows.sort((a,b)=>{
+    const da=new Date(a.y,a.m,a.d);
+    const db=new Date(b.y,b.m,b.d);
+    return da-db;
+  });
+
+  // ── 요약 카드 ────────────────────────────────────────────────────
   const sc=document.getElementById('summaryCard');
   sc.style.display='block';
-
   const sg=document.getElementById('summaryGrid');
   sg.innerHTML='';
-  [{label:'연장근로시간 합계',val:totExt.toFixed(1),unit:'시간'},{label:'야간 가산 적용',val:totNight.toFixed(1),unit:'시간'},{label:'휴일 근로',val:totHoli.toFixed(1),unit:'시간'},{label:'보상휴가시간 합계',val:totComp.toFixed(2),unit:'시간',accent:true}].forEach(mt=>{
+  [{label:'연장근로시간 합계',val:totExt.toFixed(1),unit:'시간'},
+   {label:'야간 가산 적용',val:totNight.toFixed(1),unit:'시간'},
+   {label:'휴일 근로',val:totHoli.toFixed(1),unit:'시간'},
+   {label:'보상휴가시간 합계',val:totComp.toFixed(2),unit:'시간',accent:true}
+  ].forEach(mt=>{
     const mc=document.createElement('div');
     mc.className='metric'+(mt.accent?' accent':'');
     mc.innerHTML=`<div class="ml">${mt.label}</div><div class="mv">${mt.val}<span class="mu">${mt.unit}</span></div>`;
     sg.appendChild(mc);
   });
 
+  // 제목에 달 표시
+  document.getElementById('bdTitle').textContent=`${y}년 ${m+1}월 일별 산정 내역`;
+
+  // ── 내역 테이블 ──────────────────────────────────────────────────
   const tb=document.getElementById('bdBody');
   tb.innerHTML='';
-  if(rows.length===0)return;
+  if(!rows.length)return;
   rows.forEach(r=>{
     const tr=document.createElement('tr');
+    const dateLabel=`${r.m+1}/${r.d}${(r.m!==m)?` (${r.m+1}월)`:''}`;
     if(r.noga){
-      tr.innerHTML=`<td>${m+1}/${r.d}</td><td class="noga">${r.label}</td><td>${r.ext.toFixed(1)}</td><td>-</td><td class="noga">${r.formula}</td><td class="noga">-</td>`;
+      tr.innerHTML=`<td>${dateLabel}</td><td class="noga">${r.label}</td><td>${r.ext.toFixed(1)}</td><td>-</td><td class="noga">${r.formula}</td><td class="noga">-</td>`;
     } else {
-      tr.innerHTML=`<td>${m+1}/${r.d}</td><td>${r.label}</td><td>${(r.ext||0).toFixed(1)}</td><td>${(r.night||0).toFixed(1)}</td><td style="font-size:12px;color:var(--text2)">${r.formula}</td><td><strong>${r.comp.toFixed(2)}</strong></td>`;
+      tr.innerHTML=`<td>${dateLabel}</td><td>${r.label}</td><td>${(r.ext||0).toFixed(1)}</td><td>${(r.night||0).toFixed(1)}</td><td style="font-size:12px;color:var(--text2)">${r.formula}</td><td><strong>${r.comp.toFixed(2)}</strong></td>`;
     }
     tb.appendChild(tr);
   });
@@ -442,11 +524,48 @@ function calcAndRender(y,m){
   tb.appendChild(totalTr);
 }
 
+// ── 날짜 하나를 weekMap에 등록 (휴일은 rows에 직접 추가) ─────────────
+function processDay(y,m,d,weekMap,rows){
+  const dtype=getDayType(y,m,d);
+  const dow=new Date(y,m,d).getDay();
+  const wkStart=new Date(y,m,d);wkStart.setDate(d-dow);
+  const wk=wkStart.toISOString().slice(0,10);
+  const k=key(y,m,d);
+  const sv=state[k]||{};
+
+  if(dtype==='weekday'||dtype==='saturday'){
+    if(!weekMap[wk])weekMap[wk]=[];
+    const total=sv.total||0;
+    const night=Math.min(sv.night||0,total);
+    weekMap[wk].push({y,m,d,dtype,dow,total,night,k});
+  } else {
+    // 휴일근로 (일요일 / 공휴일)
+    const holi=sv.holi||0;
+    if(holi>0){
+      const night=Math.min(sv.night||0,holi);
+      const comp=calcHoliComp(holi,night);
+      const label=dtype==='sunday'?'주휴일 휴일근로':'공휴일 휴일근로';
+      const h8=Math.min(holi,8);const hOver=Math.max(holi-8,0);
+      const nightIn8=Math.min(Math.min(night,holi),h8);
+      const nightOver=Math.max(Math.min(night,holi)-h8,0);
+      let formula='';
+      if(h8-nightIn8>0)formula+=`${(h8-nightIn8).toFixed(1)}h×1.5`;
+      if(nightIn8>0)formula+=(formula?'+':'')+`${nightIn8.toFixed(1)}h×2.0`;
+      if(hOver-nightOver>0)formula+=(formula?'+':'')+`${(hOver-nightOver).toFixed(1)}h×2.0`;
+      if(nightOver>0)formula+=(formula?'+':'')+`${nightOver.toFixed(1)}h×2.5`;
+      rows.push({y,m,d,label,ext:holi,night,formula,comp:Math.round(comp*100)/100,noga:false});
+    }
+  }
+}
+
 function resetAll(){
+  if(!confirm('모든 달의 입력값이 초기화됩니다. 계속하시겠습니까?'))return;
   state={};
   renderCal();
 }
 
+// ── 초기 실행 ────────────────────────────────────────────────────────
+curY=parseInt(selY.value);curM=parseInt(selM.value);
 renderCal();
 </script>
 </body>
