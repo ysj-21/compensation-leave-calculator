@@ -394,6 +394,14 @@ function calcAndRender(y,m){
     processDay(od.y,od.m,od.d,weekMap,rows);
   }
 
+  // 휴일근로(주휴일/공휴일) 합산 — processDay는 rows에 행만 추가하므로 여기서 합계에 반영
+  rows.forEach(r=>{
+    if(r.label && r.label.endsWith('휴일근로')){
+      totHoli+=r.ext;
+      totComp+=r.comp;
+    }
+  });
+
   // 주 단위 계산
   Object.entries(weekMap).forEach(([wk,days])=>{
     if(!days.length)return;
