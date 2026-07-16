@@ -50,11 +50,11 @@ button.nav-btn{font-size:18px;padding:6px 12px;min-width:36px}
 .day-cell.sunday{background:var(--red-bg);border-color:var(--red-border)}
 .day-cell.saturday{background:var(--bg2)}
 .day-cell.holiday-pub{background:var(--red-bg);border-color:var(--red-border)}
-/* 이번 달 마지막 주에 속하는 다음달 날짜 (회색 빗금 배경) */
-.day-cell.overflow-next{background:repeating-linear-gradient(135deg,var(--bg) 0px,var(--bg) 6px,var(--bg2) 6px,var(--bg2) 8px);border-color:var(--border);opacity:0.85}
-.day-cell.overflow-next.sunday{background:repeating-linear-gradient(135deg,var(--red-bg) 0px,var(--red-bg) 6px,#fde0e0 6px,#fde0e0 8px)}
-.day-cell.overflow-next.saturday{background:repeating-linear-gradient(135deg,var(--bg2) 0px,var(--bg2) 6px,var(--bg3) 6px,var(--bg3) 8px)}
-.day-cell.overflow-next.holiday-pub{background:repeating-linear-gradient(135deg,var(--red-bg) 0px,var(--red-bg) 6px,#fde0e0 6px,#fde0e0 8px)}
+/* 이번 달 마지막/첫 주에 걸친 다음달·전월 날짜 (회색 빗금 배경) */
+.day-cell.overflow-next,.day-cell.overflow-prev{background:repeating-linear-gradient(135deg,var(--bg) 0px,var(--bg) 6px,var(--bg2) 6px,var(--bg2) 8px);border-color:var(--border);opacity:0.85}
+.day-cell.overflow-next.sunday,.day-cell.overflow-prev.sunday{background:repeating-linear-gradient(135deg,var(--red-bg) 0px,var(--red-bg) 6px,#fde0e0 6px,#fde0e0 8px)}
+.day-cell.overflow-next.saturday,.day-cell.overflow-prev.saturday{background:repeating-linear-gradient(135deg,var(--bg2) 0px,var(--bg2) 6px,var(--bg3) 6px,var(--bg3) 8px)}
+.day-cell.overflow-next.holiday-pub,.day-cell.overflow-prev.holiday-pub{background:repeating-linear-gradient(135deg,var(--red-bg) 0px,var(--red-bg) 6px,#fde0e0 6px,#fde0e0 8px)}
 .overflow-label{font-size:8px;color:var(--text3);margin-bottom:2px}
 .day-num{font-size:11px;font-weight:500;color:var(--text2);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center}
 .day-num.sun-num{color:var(--red-text)}
@@ -136,7 +136,7 @@ button.nav-btn{font-size:18px;padding:6px 12px;min-width:36px}
       <p>※ 평일·토요일 — "총근무(h)": 그날의 실제 총 근로시간을 입력하세요. 8시간 초과분(일 단위) 및 주 40시간 초과분(주 단위)이 자동 산정됩니다.</p>
       <p>※ 일요일·공휴일(유급휴일) — "휴일근로(h)": 그날의 실제 총 근로시간을 입력하세요.</p>
       <p>※ "야간(h)": 근로시간 중 22:00~06:00에 해당하는 시간을 입력하세요.</p>
-      <p>※ 달의 마지막 주가 다음 달로 넘어가는 경우, 다음 달 첫째 주 날짜가 달력 하단에 표시됩니다. 연속 입력하면 해당 주의 주 단위 계산이 자동으로 합산됩니다.</p>
+      <p>※ 달의 첫/마지막 주가 전월·다음달과 겹치는 경우, 빗금 표시된 칸에 해당 달의 날짜가 함께 표시됩니다. 실제 값은 그 날짜의 달로 이동해도 동일하게 유지되며, 겹치는 주의 주 단위 계산에 자동으로 합산됩니다.</p>
       <p>※ 자정을 교차하는 근무(예: 토 22시~일 02시)는 날짜별로 나눠서 각각 입력하세요.</p>
     </div>
   </div>
@@ -163,6 +163,8 @@ const HOLIDAYS={
 };
 // 공휴일이 확정된 마지막 연도
 const LAST_HOLIDAY_YEAR = 2027;
+// 공휴일 데이터가 있는 첫 연도 (이보다 이전 달은 전월 백필 대상에서 제외)
+const FIRST_HOLIDAY_YEAR = 2024;
 
 const ALL_HOLIDAYS=Object.values(HOLIDAYS).flat();
 
@@ -263,32 +265,48 @@ function renderCal(){
     d.textContent=h;grid.appendChild(d);
   });
 
-  // 이번 달 1일 앞 빈칸
-  for(let i=0;i<firstDow;i++){
-    const e=document.createElement('div');e.className='day-cell empty';grid.appendChild(e);
+  // ── 이번 달 1일 앞 빈칸 → 전월 날짜로 백필 (일요일 칸은 전월 화면에서 별도 정산되므로 빈칸 유지) ──
+  let py=y,pm=m-1;
+  if(pm<0){py--;pm=11;}
+  const prevBackfillOk=firstDow>0&&py>=FIRST_HOLIDAY_YEAR;
+  if(firstDow>0){
+    const prevDaysInMonth=new Date(py,pm+1,0).getDate();
+    for(let i=0;i<firstDow;i++){
+      if(i===0||!prevBackfillOk){
+        // 일요일 칸(i=0)은 항상 빈칸, 데이터 범위 밖(전월<2024)이면 나머지도 빈칸
+        const e=document.createElement('div');e.className='day-cell empty';grid.appendChild(e);
+        continue;
+      }
+      const pd=prevDaysInMonth-firstDow+1+i;
+      grid.appendChild(makeDayCell(py,pm,pd,'prev'));
+    }
   }
 
   // 이번 달 날짜
   for(let d=1;d<=daysInMonth;d++){
-    grid.appendChild(makeDayCell(y,m,d,false));
+    grid.appendChild(makeDayCell(y,m,d,'cur'));
   }
 
   // ── 이번 달 마지막 주가 다음 달로 넘어가는 경우 다음 달 날짜 추가 ──
   // lastDow가 토요일(6)이 아니면 다음 달 날짜가 같은 주에 있음
   const overflowTip=document.getElementById('overflowTip');
-  if(lastDow!==6){
-    // 다음 달 정보
-    let ny=y,nm=m+1;
-    if(nm>11){ny++;nm=0;}
-
-    if(ny<=LAST_HOLIDAY_YEAR){
-      const overflowCount=6-lastDow; // 토요일까지 남은 칸 수
-      for(let d=1;d<=overflowCount;d++){
-        grid.appendChild(makeDayCell(ny,nm,d,true));
-      }
-      overflowTip.style.display='block';
-      overflowTip.textContent=`▲ 빗금 셀은 ${ny}년 ${nm+1}월 날짜입니다. 이번 달 마지막 주와 같은 주로 계산됩니다.`;
+  let nextBackfillOk=false,ny=y,nm=m+1;
+  if(nm>11){ny++;nm=0;}
+  if(lastDow!==6&&ny<=LAST_HOLIDAY_YEAR){
+    nextBackfillOk=true;
+    const overflowCount=6-lastDow; // 토요일까지 남은 칸 수
+    for(let d=1;d<=overflowCount;d++){
+      grid.appendChild(makeDayCell(ny,nm,d,'next'));
     }
+  }
+
+  // 빈 공간 안내: 전월/다음달 중 하나라도 백필됐으면 표시
+  const tipParts=[];
+  if(prevBackfillOk)tipParts.push(`◀ ${py}년 ${pm+1}월`);
+  if(nextBackfillOk)tipParts.push(`${ny}년 ${nm+1}월 ▶`);
+  if(tipParts.length){
+    overflowTip.style.display='block';
+    overflowTip.textContent=`▲ 빗금 셀: ${tipParts.join(' / ')} 날짜입니다. 각각 해당 주와 같은 주로 계산됩니다.`;
   } else {
     overflowTip.style.display='none';
   }
@@ -297,7 +315,7 @@ function renderCal(){
 }
 
 // ── 날짜 셀 생성 ─────────────────────────────────────────────────────
-function makeDayCell(y,m,d,isOverflow){
+function makeDayCell(y,m,d,overflowType){
   const dtype=getDayType(y,m,d);
   const dow=new Date(y,m,d).getDay();
   const k=key(y,m,d);
@@ -308,13 +326,18 @@ function makeDayCell(y,m,d,isOverflow){
   else if(dtype==='saturday')cls+='saturday';
   else if(dtype==='holiday')cls+='holiday-pub';
   else cls+='weekday';
-  if(isOverflow)cls+=' overflow-next';
+  if(overflowType==='next')cls+=' overflow-next';
+  else if(overflowType==='prev')cls+=' overflow-prev';
   cell.className=cls;
 
-  // 다음달 표시
-  if(isOverflow){
+  // 전월/다음달 표시
+  if(overflowType==='next'){
     const ol=document.createElement('div');
     ol.className='overflow-label';ol.textContent=`${m+1}월→`;
+    cell.appendChild(ol);
+  } else if(overflowType==='prev'){
+    const ol=document.createElement('div');
+    ol.className='overflow-label';ol.textContent=`←${m+1}월`;
     cell.appendChild(ol);
   }
 
@@ -369,6 +392,7 @@ function calcHoliComp(holi,night){
 function calcAndRender(y,m){
   const daysInMonth=new Date(y,m+1,0).getDate();
   const lastDow=new Date(y,m,daysInMonth).getDay();
+  const firstDow=new Date(y,m,1).getDay();
 
   // 이번 달 마지막 주에 포함되는 다음 달 날짜들
   let overflowDays=[];
@@ -381,10 +405,28 @@ function calcAndRender(y,m){
     }
   }
 
+  // 이번 달 첫 주에 포함되는 전월 날짜들 (일요일 제외 — 렌더링 백필과 동일한 범위)
+  let underflowDays=[];
+  if(firstDow>0){
+    let py=y,pm=m-1;
+    if(pm<0){py--;pm=11;}
+    if(py>=FIRST_HOLIDAY_YEAR){
+      const prevDaysInMonth=new Date(py,pm+1,0).getDate();
+      for(let i=1;i<firstDow;i++){
+        const pd=prevDaysInMonth-firstDow+1+i;
+        underflowDays.push({y:py,m:pm,d:pd});
+      }
+    }
+  }
+
   let rows=[];
   let totExt=0,totNight=0,totHoli=0,totComp=0;
   const weekMap={};
 
+  // 전월 언더플로우 날짜 처리 (주 단위 계산에만 참여)
+  for(const ud of underflowDays){
+    processDay(ud.y,ud.m,ud.d,weekMap,rows);
+  }
   // 이번 달 날짜 처리
   for(let d=1;d<=daysInMonth;d++){
     processDay(y,m,d,weekMap,rows);
